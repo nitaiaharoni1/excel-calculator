@@ -32,8 +32,19 @@ describe("ExcelCalculator Tests", () => {
     excelCalculator.setCellValue("B3", 100);
     excelCalculator.setCellFormula("C1", "AVERAGE(A1:A3, B1:B3)");
     excelCalculator.calculate();
-    expect(excelCalculator.getCellValue('B1')).toBe(200);
-    expect(excelCalculator.getCellValue('C1')).toBe(155);
+    expect(excelCalculator.getCellValue("B1")).toBe(200);
+    expect(excelCalculator.getCellValue("C1")).toBe(155);
+  });
+
+  it("should calculate formulas correctly with cell references with $", () => {
+    const mockWorksheet = {
+      A1: { value: 4 },
+      B1: { value: 3 },
+      C1: { formula: "$A$1+B1" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.C1.value).toBe(7);
   });
 
   it("should set cell values correctly", () => {
