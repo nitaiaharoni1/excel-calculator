@@ -37,14 +37,17 @@ export class ExcelCalculator {
     this.worksheet = this.buildWorksheet(excelWorksheet);
   }
 
-  public calculate(): IWorksheet {
+  public calculate(maxIterations: number = 10): IWorksheet {
     this.validateInitialised();
-
-    this.calculateOnce();
     let notCalculatedCells = this.getAllNotCalculated();
-    while (notCalculatedCells.length) {
+    let iterationCount = 0;
+    while (notCalculatedCells.length && iterationCount < maxIterations) {
       this.calculateOnce();
       notCalculatedCells = this.getAllNotCalculated();
+      iterationCount += 1;
+    }
+    if (iterationCount >= maxIterations) {
+      console.warn('Max calculation iterations reached, there might be unresolved formulas or circular dependencies.');
     }
     return this.worksheet;
   }

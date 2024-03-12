@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { ExcelCalculator } from './ExcelCalculator';
 
 describe('ExcelCalculator Tests', () => {
@@ -19,14 +20,14 @@ describe('ExcelCalculator Tests', () => {
     expect(result.C1.value).toBe(5);
   });
 
-  it('sets cell values correctly', () => {
+  it('should set cell values correctly', () => {
     const cellAddress = 'D1';
     const value = 10;
     excelCalculator.setCellValue(cellAddress, value);
     expect(excelCalculator.getCellValue('D1')).toEqual(value);
   });
 
-  it('sets cell formula correctly', () => {
+  it('should set cell formulas correctly', () => {
     const cellAddress = 'E1';
     const formula = 'A1+D1';
     excelCalculator.setCellFormula(cellAddress, formula);
@@ -110,4 +111,259 @@ describe('ExcelCalculator Tests', () => {
     const result = excelCalculator.calculate();
     expect(result.A1.value).toBe(Infinity);
   });
+
+  // it('should return null when cell formula is invalid', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'INVALID_FORMULA' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  // });
+
+  it('should handle formulas with multiple cell references', () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      B1: { value: 2 },
+      C1: { value: 3 },
+      D1: { formula: 'A1+B1+C1' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.D1.value).toBe(6);
+  });
+
+  it('should handle formulas with nested functions', () => {
+    const mockWorksheet = {
+      A1: { value: 2 },
+      A2: { formula: 'IF(A1>1, SUM(A1, 5), 0)' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A2.value).toBe(7);
+  });
+
+  it('should handle formulas with cell ranges and functions', () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 2 },
+      A3: { value: 3 },
+      A4: { formula: 'SUM(A1:A3)*2' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(12);
+  });
+
+  it('should handle formulas with division by zero', () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 0 },
+      A3: { formula: 'A1/A2' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A3.value).toBe(Infinity);
+  });
+
+  it('should handle formulas with negative numbers', () => {
+    const mockWorksheet = {
+      A1: { value: -1 },
+      A2: { value: 2 },
+      A3: { formula: 'A1+A2' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A3.value).toBe(1);
+  });
+
+  it('should handle formulas with boolean values', () => {
+    const mockWorksheet = {
+      A1: { value: true },
+      A2: { formula: 'NOT(A1)' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A2.value).toBe(false);
+  });
+
+  it('should handle formulas with multiple operations and parentheses', () => {
+    const mockWorksheet = {
+      A1: { value: 2 },
+      B1: { value: 3 },
+      C1: { value: 4 },
+      D1: { formula: '(A1+B1)*C1' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.D1.value).toBe(20);
+  });
+
+  it('should handle formulas with functions and cell references', () => {
+    const mockWorksheet = {
+      A1: { value: 2 },
+      B1: { value: 3 },
+      C1: { formula: 'MAX(A1, B1)' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.C1.value).toBe(3);
+  });
+
+  it('should handle formulas with nested functions and cell references', () => {
+    const mockWorksheet = {
+      A1: { value: 2 },
+      B1: { value: 3 },
+      C1: { formula: 'MAX(MIN(A1, B1), B1)' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.C1.value).toBe(3);
+  });
+
+  it('should handle formulas with cell ranges in functions', () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 2 },
+      A3: { value: 3 },
+      A4: { formula: 'AVERAGE(A1:A3)' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(2);
+  });
+
+  it('should handle formulas with multiple cell ranges in functions', () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 2 },
+      A3: { value: 3 },
+      B1: { value: 4 },
+      B2: { value: 5 },
+      B3: { value: 6 },
+      C1: { formula: 'AVERAGE(A1:A3, B1:B3)' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.C1.value).toBe(3.5);
+  });
+
+  it('should handle formulas with invalid cell references', () => {
+    const mockWorksheet = {
+      A1: { formula: 'B1+10' },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.value).toBe(10);
+  });
+
+  // it('should handle formulas with string concatenation', () => {
+  //   const mockWorksheet = {
+  //     A1: { value: 'Hello' },
+  //     A2: { value: 'World' },
+  //     A3: { formula: 'A1 & " " & A2' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A3.value).toBe('Hello World');
+  // });
+  //
+  // it('should handle formulas with division by zero in nested functions', () => {
+  //   const mockWorksheet = {
+  //     A1: { value: 1 },
+  //     A2: { value: 0 },
+  //     A3: { formula: 'A1/(A2+1)' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A3.value).toBe(Infinity);
+  // });
+  //
+  // it('should handle formulas with invalid functions', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'INVALID(A1)' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  // });
+  //
+  // it('should handle formulas with invalid syntax', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'A1 + + 10' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  // });
+  //
+  // it('should handle formulas with missing parentheses', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'SUM(A1, A2' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  // });
+  //
+  // it('should handle formulas with extra parentheses', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'SUM(A1, A2))' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  // });
+  //
+  // it('should handle formulas with cell references to cells with formulas', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'B1+10' },
+  //     B1: { formula: 'C1*2' },
+  //     C1: { value: 5 },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBe(20);
+  // });
+
+  // it('should handle formulas with string values', () => {
+  //   const mockWorksheet = {
+  //     A1: { value: 'Hello' },
+  //     A2: { value: ' World' },
+  //     A3: { formula: 'A1&A2' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A3.value).toBe('Hello World');
+  // });
+  //
+  // it('should handle formulas with date values', () => {
+  //   const mockWorksheet = {
+  //     A1: { value: new Date(2022, 0, 1) },
+  //     A2: { value: new Date(2022, 11, 31) },
+  //     A3: { formula: 'YEARFRAC(A1, A2, 1)' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A3.value).toBeCloseTo(1, 2);
+  // });
+  //
+  // it('should handle formulas with error values', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'SQRT(-1)' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  // });
+  //
+  // it('should handle formulas with complex numbers', () => {
+  //   const mockWorksheet = {
+  //     A1: { value: 'i' },
+  //     A2: { formula: 'IMABS(A1)' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A2.value).toBe(1);
+  // });
 });
