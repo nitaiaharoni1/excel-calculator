@@ -1,4 +1,4 @@
-# ExcelCalculator
+# excel-calculator
 
 ExcelCalculator is an npm package designed to facilitate the manipulation and calculation of Excel sheet data programmatically. Leveraging the powerful `exceljs` and `mathjs` libraries, it allows users to read Excel files, modify cell values, apply formulas, and perform calculations dynamically.
 
