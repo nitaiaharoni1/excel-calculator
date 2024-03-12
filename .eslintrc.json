@@ -36,6 +36,7 @@
     "no-return-await": "off",
     "@typescript-eslint/restrict-template-expressions": "off",
     "no-continue": "off",
+    "max-len": "off",
     "max-params": [
       "error",
       5

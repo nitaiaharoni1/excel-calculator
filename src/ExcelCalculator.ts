@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 import * as ExcelJS from 'exceljs';
 import { EXCEL_TO_MATHJS_FORMULAS } from './common/constants';
 import { all, create } from 'mathjs';
