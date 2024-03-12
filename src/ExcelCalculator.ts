@@ -1,5 +1,6 @@
 /* eslint-disable max-len */
 import * as ExcelJS from 'exceljs';
+import { EXCEL_TO_MATHJS_FORMULAS } from './common/constants';
 import { all, create } from 'mathjs';
 
 const math = create(all);
@@ -173,7 +174,10 @@ export class ExcelCalculator {
   private evaluateFormula(formula: string): number | string | null {
     const formulaParsed = this.convertIfToTernary(formula);
     let formulaWithValues = this.replaceCellRefsWithValues(formulaParsed);
-    formulaWithValues = formulaWithValues.toLowerCase().replace(/undefined/gu, '0');
+    Object.entries(EXCEL_TO_MATHJS_FORMULAS).forEach(([excelFunction, mathjsFunction]) => {
+      formulaWithValues = formulaWithValues.replace(new RegExp(`${excelFunction}\\(`, 'gu'), `${mathjsFunction}(`);
+    });
+    formulaWithValues = formulaWithValues.replace(/undefined/gu, '0');
     formulaWithValues = formulaWithValues.replace(/(?<!<)(?<!>)(?<![:])(=)(?!=)/gu, '=$1');
     try {
       return math.evaluate(formulaWithValues);
