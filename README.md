@@ -77,20 +77,33 @@ console.log(calculatedValue); // Output: 200
 
 A complete workflow from initializing the calculator, setting values and formulas, to calculating and retrieving values:
 
-```javascript
-async function calculateExcelSheet() {
-  const calculator = new ExcelCalculator('path/to/file.xlsx', 'Sheet1');
-  await calculator.init();
-  
-  calculator.setCellValue('A1', 100);
-  calculator.setCellFormula('B1', 'A1*2');
-  
-  calculator.calculate();
-  
-  console.log(calculator.getCellValue('B1')); // Output: 200
-}
+```typescript
+const calculator = new ExcelCalculator('path/to/file.xlsx', 'Sheet1');
+await calculator.init();
 
-calculateExcelSheet();
+calculator.setCellValue("A1", 100);
+calculator.setCellValue("A2", 200);
+calculator.setCellValue("A3", 300);
+calculator.setCellFormula("B1", "A1*2");
+calculator.setCellValue("B2", 30);
+calculator.setCellValue("B3", 100);
+calculator.setCellFormula("C1", "AVERAGE(A1:A3, B1:B3)");
+calculator.calculate();
+
+console.log(calculator.getCellValue("C1")); // Output: 200
+console.log(calculator.getCellValue("B1")); // Output: 155
+```
+
+Another example of setting a worksheet with initial values and formulas and calculating the result:
+```typescript
+const calculator = new ExcelCalculator('path/to/file.xlsx', 'Sheet1');
+await calculator.setWorksheet({
+  A1: { value: 2 },
+  B1: { value: 3 },
+  C1: { formula: "A1+B1" },
+});
+const result = calculator.calculate();
+console.log(result.C1.value); // Output: 5
 ```
 
 ## API Reference

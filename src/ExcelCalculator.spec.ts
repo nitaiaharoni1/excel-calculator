@@ -21,6 +21,21 @@ describe("ExcelCalculator Tests", () => {
     expect(result.C1.value).toBe(5);
   });
 
+  it("should calculate formulas correctly more complex", () => {
+    const mockWorksheet = {};
+    excelCalculator.setWorksheet(mockWorksheet);
+    excelCalculator.setCellValue("A1", 100);
+    excelCalculator.setCellValue("A2", 200);
+    excelCalculator.setCellValue("A3", 300);
+    excelCalculator.setCellFormula("B1", "A1*2");
+    excelCalculator.setCellValue("B2", 30);
+    excelCalculator.setCellValue("B3", 100);
+    excelCalculator.setCellFormula("C1", "AVERAGE(A1:A3, B1:B3)");
+    excelCalculator.calculate();
+    expect(excelCalculator.getCellValue('B1')).toBe(200);
+    expect(excelCalculator.getCellValue('C1')).toBe(155);
+  });
+
   it("should set cell values correctly", () => {
     const cellAddress = "D1";
     const value = 10;
@@ -93,16 +108,6 @@ describe("ExcelCalculator Tests", () => {
     expect(result.C1.value).toBe(6);
   });
 
-  // it('should handle circular references', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'A2+1' },
-  //     A2: { formula: 'A1+1' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  //   expect(result.A2.value).toBeNull();
-  // });
 
   it("should handle calculation 1/0 to Infinity", () => {
     const mockWorksheet = {
@@ -112,15 +117,6 @@ describe("ExcelCalculator Tests", () => {
     const result = excelCalculator.calculate();
     expect(result.A1.value).toBe(Infinity);
   });
-
-  // it('should return null when cell formula is invalid', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'INVALID_FORMULA' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  // });
 
   it("should handle formulas with multiple cell references", () => {
     const mockWorksheet = {
@@ -257,6 +253,26 @@ describe("ExcelCalculator Tests", () => {
     const result = excelCalculator.calculate();
     expect(result.A1.value).toBe(10);
   });
+
+  // it('should handle circular references', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'A2+1' },
+  //     A2: { formula: 'A1+1' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  //   expect(result.A2.value).toBeNull();
+  // });
+
+  // it('should return null when cell formula is invalid', () => {
+  //   const mockWorksheet = {
+  //     A1: { formula: 'INVALID_FORMULA' },
+  //   };
+  //   excelCalculator.setWorksheet(mockWorksheet);
+  //   const result = excelCalculator.calculate();
+  //   expect(result.A1.value).toBeNull();
+  // });
 
   // it('should handle formulas with string concatenation', () => {
   //   const mockWorksheet = {
