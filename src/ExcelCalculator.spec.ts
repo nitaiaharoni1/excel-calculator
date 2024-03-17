@@ -265,133 +265,258 @@ describe("ExcelCalculator Tests", () => {
     expect(result.A1.value).toBe(10);
   });
 
-  // it('should handle circular references', () => {
+  it("should handle circular references", () => {
+    const mockWorksheet = {
+      A1: { formula: "A2+1" },
+      A2: { formula: "A1+1" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.value).toBeUndefined();
+    expect(result.A1.formula).toEqual("#REF!");
+    expect(result.A2.value).toBeUndefined();
+    expect(result.A2.formula).toEqual("#REF!");
+  });
+
+  it("should handle formulas with cell references to cells with formulas", () => {
+    const mockWorksheet = {
+      A1: { formula: "B1+10" },
+      B1: { formula: "C1*2" },
+      C1: { value: 5 },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.value).toBe(20);
+  });
+
+  it("should return null when cell formula is invalid", () => {
+    const mockWorksheet = {
+      A1: { formula: "INVALID_FORMULA" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.formula).toEqual("INVALID_FORMULA");
+    expect(result.A1.value).toBeUndefined();
+  });
+
+
+  it("should handle formulas with division by zero + 1", () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 0 },
+      A3: { formula: "A1/(A2+1)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A3.value).toBe(1);
+  });
+
+  it("should handle formulas with division by zero", () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 0 },
+      A3: { formula: "A1/A2" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A3.value).toBe(Infinity);
+  });
+
+
+  it("should handle formulas with invalid functions", () => {
+    const mockWorksheet = {
+      A1: { formula: "INVALID(A1)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.formula).toEqual("#REF!");
+    expect(result.A1.value).toBeUndefined();
+  });
+
+  it("should handle formulas with invalid syntax", () => {
+    const mockWorksheet = {
+      A1: { formula: "A1 + + 10" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.formula).toEqual("#REF!");
+    expect(result.A1.value).toBeUndefined();
+  });
+
+  it("should handle formulas with missing parentheses", () => {
+    const mockWorksheet = {
+      A1: { formula: "SUM(A1, A2" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.formula).toEqual("#REF!");
+    expect(result.A1.value).toBeUndefined();
+  });
+
+  it("should handle formulas with extra parentheses", () => {
+    const mockWorksheet = {
+      A1: { formula: "SUM(A1, A2))" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.formula).toEqual("#REF!");
+    expect(result.A1.value).toBeUndefined();
+  });
+
+
+  it("should handle formulas with error values", () => {
+    const mockWorksheet = {
+      A1: { formula: "SQRT(-1)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.value.re).toEqual(0);
+    expect(result.A1.value.im).toEqual(1);
+  });
+
+  it("should handle INDEX formula", () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 2 },
+      A3: { value: 3 },
+      A4: { formula: "INDEX(A1:A3, 2, 1)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(2);
+  });
+
+  it("should handle MATCH formula", () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 2 },
+      A3: { value: 3 },
+      A4: { formula: "MATCH(2, A1:A3, 0)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(2);
+  });
+
+
+  it("should handle INDEX and MATCH formula", () => {
+    const mockWorksheet = {
+      A1: { value: 1 },
+      A2: { value: 2 },
+      A3: { value: 3 },
+      A4: { formula: "INDEX(A1:A3, MATCH(2, A1:A3, 0), 1)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(2);
+  });
+
+  // multiple VLOOKUP(search_key, range, index, [is_sorted]) tests
+  it("should handle VLOOKUP formula", () => {
+    const mockWorksheet = {
+      A1: { value: "apple" },
+      A2: { value: "banana" },
+      A3: { value: "cherry" },
+      B1: { value: 1 },
+      B2: { value: 2 },
+      B3: { value: 3 },
+      A4: { formula: "VLOOKUP(\"banana\", A1:B3, 2)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(2);
+  });
+
+  it("should handle VLOOKUP formula with is_sorted = false", () => {
+    const mockWorksheet = {
+      A1: { value: "apple" },
+      A2: { value: "banana" },
+      A3: { value: "cherry" },
+      B1: { value: 1 },
+      B2: { value: 2 },
+      B3: { value: 3 },
+      A4: { formula: "VLOOKUP(\"banana\", A1:B3, 2, false)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(2);
+  });
+
+  it("should handle VLOOKUP formula with is_sorted = true", () => {
+    const mockWorksheet = {
+      A1: { value: "apple" },
+      A2: { value: "banana" },
+      A3: { value: "cherry" },
+      B1: { value: 1 },
+      B2: { value: 2 },
+      B3: { value: 3 },
+      A4: { formula: "VLOOKUP(\"banana\", A1:B3, 2, true)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBe(2);
+  });
+
+  it("should handle VLOOKUP formula with search_key not found", () => {
+    const mockWorksheet = {
+      A1: { value: "apple" },
+      A2: { value: "banana" },
+      A3: { value: "cherry" },
+      B1: { value: 1 },
+      B2: { value: 2 },
+      B3: { value: 3 },
+      A4: { formula: "VLOOKUP(\"pear\", A1:B3, 2)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBeUndefined();
+  });
+
+  it("should handle VLOOKUP formula with index out of range", () => {
+    const mockWorksheet = {
+      A1: { value: "apple" },
+      A2: { value: "banana" },
+      A3: { value: "cherry" },
+      B1: { value: 1 },
+      B2: { value: 2 },
+      B3: { value: 3 },
+      A4: { formula: "VLOOKUP(\"banana\", A1:B3, 3)" },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A4.value).toBeUndefined();
+  });
+
+  // it("should handle formulas with string concatenation", () => {
   //   const mockWorksheet = {
-  //     A1: { formula: 'A2+1' },
-  //     A2: { formula: 'A1+1' },
+  //     A1: { value: "Hello" },
+  //     A2: { value: "World" },
+  //     A3: { formula: "A1 & \" \" & A2" },
   //   };
   //   excelCalculator.setWorksheet(mockWorksheet);
   //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  //   expect(result.A2.value).toBeNull();
+  //   expect(result.A3.value).toBe("Hello World");
   // });
 
-  // it('should return null when cell formula is invalid', () => {
+  // it("should handle formulas with string values", () => {
   //   const mockWorksheet = {
-  //     A1: { formula: 'INVALID_FORMULA' },
+  //     A1: { value: "Hello" },
+  //     A2: { value: " World" },
+  //     A3: { formula: "A1&A2" },
   //   };
   //   excelCalculator.setWorksheet(mockWorksheet);
   //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  // });
-
-  // it('should handle formulas with string concatenation', () => {
-  //   const mockWorksheet = {
-  //     A1: { value: 'Hello' },
-  //     A2: { value: 'World' },
-  //     A3: { formula: 'A1 & " " & A2' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A3.value).toBe('Hello World');
+  //   expect(result.A3.value).toBe("Hello World");
   // });
   //
-  // it('should handle formulas with division by zero in nested functions', () => {
-  //   const mockWorksheet = {
-  //     A1: { value: 1 },
-  //     A2: { value: 0 },
-  //     A3: { formula: 'A1/(A2+1)' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A3.value).toBe(Infinity);
-  // });
-  //
-  // it('should handle formulas with invalid functions', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'INVALID(A1)' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  // });
-  //
-  // it('should handle formulas with invalid syntax', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'A1 + + 10' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  // });
-  //
-  // it('should handle formulas with missing parentheses', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'SUM(A1, A2' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  // });
-  //
-  // it('should handle formulas with extra parentheses', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'SUM(A1, A2))' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  // });
-  //
-  // it('should handle formulas with cell references to cells with formulas', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'B1+10' },
-  //     B1: { formula: 'C1*2' },
-  //     C1: { value: 5 },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBe(20);
-  // });
-
-  // it('should handle formulas with string values', () => {
-  //   const mockWorksheet = {
-  //     A1: { value: 'Hello' },
-  //     A2: { value: ' World' },
-  //     A3: { formula: 'A1&A2' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A3.value).toBe('Hello World');
-  // });
-  //
-  // it('should handle formulas with date values', () => {
+  // it("should handle formulas with date values", () => {
   //   const mockWorksheet = {
   //     A1: { value: new Date(2022, 0, 1) },
   //     A2: { value: new Date(2022, 11, 31) },
-  //     A3: { formula: 'YEARFRAC(A1, A2, 1)' },
+  //     A3: { formula: "YEARFRAC(A1, A2, 1)" },
   //   };
   //   excelCalculator.setWorksheet(mockWorksheet);
   //   const result = excelCalculator.calculate();
   //   expect(result.A3.value).toBeCloseTo(1, 2);
-  // });
-  //
-  // it('should handle formulas with error values', () => {
-  //   const mockWorksheet = {
-  //     A1: { formula: 'SQRT(-1)' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A1.value).toBeNull();
-  // });
-  //
-  // it('should handle formulas with complex numbers', () => {
-  //   const mockWorksheet = {
-  //     A1: { value: 'i' },
-  //     A2: { formula: 'IMABS(A1)' },
-  //   };
-  //   excelCalculator.setWorksheet(mockWorksheet);
-  //   const result = excelCalculator.calculate();
-  //   expect(result.A2.value).toBe(1);
   // });
 });

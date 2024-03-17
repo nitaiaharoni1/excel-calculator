@@ -102,6 +102,7 @@
     "no-warning-comments": "off",
     "capitalized-comments": "off",
     "func-style": "off",
+    "no-eq-null": "off",
     "max-lines-per-function": [
       "error",
       {

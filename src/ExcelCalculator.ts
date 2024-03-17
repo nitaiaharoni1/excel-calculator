@@ -1,8 +1,8 @@
 import * as ExcelJS from 'exceljs';
-import { EXCEL_TO_MATHJS_FORMULAS } from './common/constants';
-import { ICell, IWorksheet } from './types';
+import { EXCEL_TO_MATHJS_FORMULAS, MULTIPLE_ARGS_FORMULAS } from './common/constants';
+import { IWorksheet } from './types';
 import { MathJsInstance, all, create } from 'mathjs';
-import { buildWorksheet, convertIfToTernary } from './common/helpers';
+import { buildWorksheet, convertIfToTernary, customIndexFunction, customMatchFunction, customVlookupFunction } from './common/helpers';
 
 export class ExcelCalculator {
   public filePath: string;
@@ -16,6 +16,15 @@ export class ExcelCalculator {
     this.filePath = filePath;
     this.sheetName = sheetName;
     this.math = create(all);
+
+    this.math.import(
+      {
+        INDEX: customIndexFunction,
+        MATCH: customMatchFunction,
+        VLOOKUP: customVlookupFunction,
+      },
+      { override: true },
+    );
   }
 
   public setWorksheet(worksheet: IWorksheet): void {
@@ -31,30 +40,34 @@ export class ExcelCalculator {
     this.worksheet = buildWorksheet(excelWorksheet);
   }
 
-  public calculate(maxIterations: number = 10): IWorksheet {
-    this.validateInitialised();
-    let notCalculatedCells = this.getAllNotCalculated();
-    let iterationCount = 0;
-    while (notCalculatedCells.length && iterationCount < maxIterations) {
-      this.calculateOnce();
-      notCalculatedCells = this.getAllNotCalculated();
-      iterationCount += 1;
-    }
-    if (iterationCount >= maxIterations) {
-      console.warn('Max calculation iterations reached, there might be unresolved formulas or circular dependencies.');
-    }
+  public calculate(): IWorksheet {
+    this.validateInit();
+    const graph = this.buildDependencyGraph();
+    this.detectAndMarkCircularReferences(graph); // Detect and mark circular references before sorting and evaluating
+    const sortedCells = this.topologicalSort(graph);
+    sortedCells.forEach((cellAddress) => {
+      const cell = this.worksheet[cellAddress];
+      if (cell.formula && cell.formula !== '#REF!') {
+        // Skip evaluation for cells marked with #REF!
+        const evaluatedValue = this.evaluateFormula(cell.formula);
+        if (evaluatedValue != null) {
+          cell.value = evaluatedValue;
+          delete cell.formula;
+        }
+      }
+    });
     return this.worksheet;
   }
 
   public setCellsValues(cells: Record<string, number | string | any>): void {
-    this.validateInitialised();
+    this.validateInit();
     Object.keys(cells).forEach((cellAddress) => {
       this.setCellValue(cellAddress, cells[cellAddress]);
     });
   }
 
   public setCellFormula(cellAddress: string, formula: string): void {
-    this.validateInitialised();
+    this.validateInit();
     if (!this.worksheet[cellAddress]) {
       this.worksheet[cellAddress] = { formula, value: '' };
     }
@@ -62,7 +75,7 @@ export class ExcelCalculator {
   }
 
   public setCellValue(cellAddress: string, value: number | string | any): void {
-    this.validateInitialised();
+    this.validateInit();
     if (!this.worksheet[cellAddress]) {
       this.worksheet[cellAddress] = { value };
     }
@@ -70,41 +83,106 @@ export class ExcelCalculator {
   }
 
   public getCellFormula(cellAddress: string): string | null {
-    this.validateInitialised();
+    this.validateInit();
     const cell = this.worksheet[cellAddress];
     return cell?.formula ? cell.formula : null;
   }
 
   public getCellValue(cellAddress: string): number | string | null {
-    this.validateInitialised();
+    this.validateInit();
     const cell = this.worksheet[cellAddress.toUpperCase()];
     // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     return cell && cell.value !== undefined ? cell.value : null;
   }
 
   public getWorksheet(): IWorksheet {
-    this.validateInitialised();
+    this.validateInit();
     return this.worksheet;
   }
 
-  private validateInitialised(): void {
+  private buildDependencyGraph(): Record<string, string[]> {
+    const graph: Record<string, string[]> = {};
+    Object.keys(this.worksheet).forEach((key) => {
+      const cell = this.worksheet[key];
+      if (cell.formula) {
+        const matches = cell.formula.match(/[A-Z]+\d+/gu) ?? [];
+        graph[key] = matches;
+      }
+    });
+    return graph;
+  }
+
+  private topologicalSort(graph: Record<string, string[]>): string[] {
+    const visited: Record<string, boolean> = {};
+    const stack: string[] = [];
+    Object.keys(graph).forEach((node) => {
+      if (!visited[node]) {
+        this.topologicalSortUtil(node, visited, stack, graph);
+      }
+    });
+    return stack;
+  }
+
+  private topologicalSortUtil(node: string, visited: Record<string, boolean>, stack: string[], graph: Record<string, string[]>): void {
+    visited[node] = true;
+    const neighbours = graph[node];
+    if (!neighbours) {
+      return;
+    }
+    neighbours.forEach((n) => {
+      if (!visited[n]) {
+        this.topologicalSortUtil(n, visited, stack, graph);
+      }
+    });
+    stack.push(node);
+  }
+
+  private validateInit(): void {
     if (!this.worksheet) {
       throw new Error('Worksheet not initialized. Call init() or setWorksheet() first');
     }
   }
 
   private replaceCellRefsWithValues(formula: string): string {
-    const formulaWithValues = formula.replace(/([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/gu, (_, col, row, col2, row2) => {
-      let result = '';
-      for (let i = parseInt(row, 10); i <= parseInt(row2, 10); i += 1) {
-        result += `${col}${i},`;
+    // Now, handle range references (e.g., A1:A3). This is where we adjust for INDEX and MATCH support.
+    // This regex identifies range references and replaces them with a structured array representation.
+    let replacedFormula = formula;
+    replacedFormula = replacedFormula.replace(/([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/gu, (match, startCol, startRow, endCol, endRow) => {
+      // Convert start and end rows to numbers for iteration
+
+      const startRowNum = parseInt(startRow, 10);
+      const endRowNum = parseInt(endRow, 10);
+      const rangeValues = this.getRangeValues(startCol, startRowNum, endCol, endRowNum);
+      if (MULTIPLE_ARGS_FORMULAS.some((f) => formula.includes(f))) {
+        return JSON.stringify(rangeValues);
       }
-      return result.slice(0, -1);
+      return rangeValues.flat().join(',');
     });
-    return formulaWithValues.replace(/\$?([A-Z]+)\$?([0-9]+)/gu, (_, col, row) => {
+
+    // Handle normal cell references (e.g., A1, B2) as your existing logic might already do.
+    // This regex identifies individual cell references and replaces them with their corresponding values.
+    replacedFormula = replacedFormula.replace(/\$?([A-Z]+)\$?([0-9]+)/gu, (_, col, row) => {
       const cellValue = this.getCellValue(`${col}${row}`);
-      return cellValue === null ? 'undefined' : cellValue.toString();
+      return cellValue === null ? 'undefined' : JSON.stringify(cellValue); // Convert to JSON string to handle strings correctly in formulas
     });
+
+    return replacedFormula;
+  }
+
+  private getRangeValues(startCol: string, startRow: number, endCol: string, endRow: number): any[][] {
+    const rangeValues = [];
+    // Assume column letters can be converted to and from ASCII codes for simplicity.
+    // For a more robust solution, you might need a method to convert column letters to numbers and vice versa.
+    for (let rowNum = startRow; rowNum <= endRow; rowNum += 1) {
+      const rowValues = [];
+      for (let colCode = startCol.charCodeAt(0); colCode <= endCol.charCodeAt(0); colCode += 1) {
+        const colLetter = String.fromCharCode(colCode);
+        const cellValue = this.getCellValue(`${colLetter}${rowNum}`);
+        rowValues.push(cellValue === null ? undefined : cellValue); // Use undefined for empty cells to mirror Excel behavior
+      }
+      rangeValues.push(rowValues);
+    }
+    return rangeValues;
   }
 
   private evaluateFormula(formula: string): number | string | null {
@@ -123,22 +201,50 @@ export class ExcelCalculator {
     }
   }
 
-  private calculateOnce(): IWorksheet {
-    Object.keys(this.worksheet).forEach((key) => {
-      const cell = this.worksheet[key];
-      if (cell.formula) {
-        const evaluatedValue = this.evaluateFormula(cell.formula);
-        // eslint-disable-next-line no-eq-null
-        if (evaluatedValue != null) {
-          cell.value = evaluatedValue;
-          delete cell.formula;
+  private detectAndMarkCircularReferences(graph: Record<string, string[]>): void {
+    const visited: Record<string, boolean> = {};
+    const recStack: Record<string, boolean> = {}; // Keeps track of nodes in the current recursion stack
+
+    const detectCycle = (node: string): boolean => {
+      if (!visited[node]) {
+        visited[node] = true;
+        recStack[node] = true;
+
+        const neighbours = graph[node] || [];
+        for (const neighbour of neighbours) {
+          if (!visited[neighbour] && detectCycle(neighbour)) {
+            return true; // Cycle detected
+          } else if (recStack[neighbour]) {
+            return true; // Back edge detected, indicating a cycle
+          }
         }
       }
+      recStack[node] = false; // Remove the node from recursion stack before backtrack
+      return false;
+    };
+
+    Object.keys(graph).forEach((node) => {
+      if (detectCycle(node)) {
+        // If a cycle is detected involving `node`, mark it and its dependencies
+        this.markCellAndDependenciesWithRefError(node, graph);
+      }
     });
-    return this.worksheet;
   }
 
-  private getAllNotCalculated(): ICell[] {
-    return Object.values(this.worksheet).filter((cell) => cell.formula);
+  // Helper method to mark a cell and its dependencies with #REF!
+  private markCellAndDependenciesWithRefError(node: string, graph: Record<string, string[]>): void {
+    const stack: string[] = [node];
+    while (stack.length) {
+      const n = stack.pop()!;
+      if (!this.worksheet[n]) {
+        continue;
+      }
+      this.worksheet[n].formula = '#REF!'; // Assuming this is how you store formula in your cell objects
+      (graph[n] || []).forEach((neighbour) => {
+        if (this.worksheet[neighbour]?.formula !== '#REF!') {
+          stack.push(neighbour);
+        }
+      });
+    }
   }
 }

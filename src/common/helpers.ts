@@ -73,3 +73,35 @@ export function buildWorksheet(excelWorksheet: ExcelJS.Worksheet): IWorksheet {
   });
   return worksheet;
 }
+
+export function customIndexFunction(array: any[][], rowIndex: number, columnIndex: number = 1): any {
+  // @ts-expect-error
+  const parsedArray = array._data;
+  if (Array.isArray(parsedArray) && rowIndex > 0 && columnIndex > 0) {
+    return parsedArray[rowIndex - 1]?.[columnIndex - 1] ?? null;
+  }
+  throw new Error('INDEX function parameters out of range');
+}
+
+export function customMatchFunction(lookupValue: any, lookupArray: any[], matchType: number = 0): number | null {
+  // @ts-expect-error
+  const parsedLookupArray = lookupArray._data.flat();
+  if (Array.isArray(parsedLookupArray)) {
+    const index = parsedLookupArray.findIndex((item) => item === lookupValue);
+    return index >= 0 ? index + 1 : null; // Excel is 1-based index; return null if not found
+  }
+  throw new Error('MATCH function lookupArray must be an array');
+}
+
+// VLOOKUP(search_key, range, index, [is_sorted])
+export function customVlookupFunction(searchKey: any, range: any[][], index: number, isSorted: boolean = true): any | null {
+  // @ts-expect-error
+  const parsedRange = range._data;
+  if (Array.isArray(parsedRange) && index > 0) {
+    const searchIndex = parsedRange.findIndex((row) => row[0] === searchKey);
+    if (searchIndex >= 0) {
+      return parsedRange[searchIndex][index - 1];
+    }
+  }
+  throw new Error('VLOOKUP function parameters out of range');
+}
