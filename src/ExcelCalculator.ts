@@ -49,12 +49,11 @@ export class ExcelCalculator {
       for (const cellAddress in this.worksheet) {
         const cell = this.worksheet[cellAddress];
         if (cell.formula && cell.formula !== '#REF!') {
-          // Skip evaluation for cells marked with #REF!
+          formulaFound = true;
           const evaluatedValue = this.evaluateFormula(cell.formula);
           if (evaluatedValue != null) {
             cell.value = evaluatedValue;
             delete cell.formula;
-            formulaFound = true;
           }
         }
       }
