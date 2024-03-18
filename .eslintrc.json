@@ -103,6 +103,7 @@
     "capitalized-comments": "off",
     "func-style": "off",
     "no-eq-null": "off",
+    "require-unicode-regexp": "off",
     "max-lines-per-function": [
       "error",
       {

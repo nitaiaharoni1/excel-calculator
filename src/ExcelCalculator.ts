@@ -105,11 +105,52 @@ export class ExcelCalculator {
     Object.keys(this.worksheet).forEach((key) => {
       const cell = this.worksheet[key];
       if (cell.formula) {
-        const matches = cell.formula.match(/[A-Z]+\d+/gu) ?? [];
-        graph[key] = matches;
+        // Match individual cells and ranges
+        const matches = cell.formula.match(/[A-Z]+\d+(:[A-Z]+\d+)?/gu) ?? [];
+        const dependencies: string[] = [];
+        matches.forEach((match) => {
+          if (match.includes(':')) {
+            // It's a range, expand it
+            const [start, end] = match.split(':');
+            const expandedRange = this.expandRange(`${start}:${end}`);
+            dependencies.push(...expandedRange);
+          } else {
+            // It's a single cell
+            dependencies.push(match);
+          }
+        });
+        graph[key] = dependencies;
       }
     });
     return graph;
+  }
+
+  private expandRange(range: string): string[] {
+    const { startColumn, endColumn, startRow, endRow } = this.parseCellRange(range);
+    const expandedRange: string[] = [];
+
+    for (let rowNum = startRow; rowNum <= endRow; rowNum += 1) {
+      for (let colCode = startColumn.charCodeAt(0); colCode <= endColumn.charCodeAt(0); colCode += 1) {
+        const cellRef = `${String.fromCharCode(colCode)}${rowNum}`;
+        expandedRange.push(cellRef);
+      }
+    }
+
+    return expandedRange;
+  }
+
+  private parseCellRange(range: string): { startColumn: string; endColumn: string; startRow: number; endRow: number } {
+    const match = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+    if (!match) {
+      throw new Error(`Invalid cell range: ${range}`);
+    }
+
+    return {
+      endColumn: match[3],
+      endRow: parseInt(match[4], 10),
+      startColumn: match[1],
+      startRow: parseInt(match[2], 10),
+    };
   }
 
   private topologicalSort(graph: Record<string, string[]>): string[] {
