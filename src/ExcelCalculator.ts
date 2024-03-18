@@ -107,59 +107,6 @@ export class ExcelCalculator {
     return this.worksheet;
   }
 
-  private buildDependencyGraph(): Record<string, string[]> {
-    const graph: Record<string, string[]> = {};
-    Object.keys(this.worksheet).forEach((key) => {
-      const cell = this.worksheet[key];
-      if (cell.formula) {
-        // Match individual cells and ranges
-        const matches = cell.formula.match(/[A-Z]+\d+(:[A-Z]+\d+)?/gu) ?? [];
-        const dependencies: string[] = [];
-        matches.forEach((match) => {
-          if (match.includes(':')) {
-            // It's a range, expand it
-            const [start, end] = match.split(':');
-            const expandedRange = this.expandRange(`${start}:${end}`);
-            dependencies.push(...expandedRange);
-          } else {
-            // It's a single cell
-            dependencies.push(match);
-          }
-        });
-        graph[key] = dependencies;
-      }
-    });
-    return graph;
-  }
-
-  private expandRange(range: string): string[] {
-    const { startColumn, endColumn, startRow, endRow } = this.parseCellRange(range);
-    const expandedRange: string[] = [];
-
-    for (let rowNum = startRow; rowNum <= endRow; rowNum += 1) {
-      for (let colCode = startColumn.charCodeAt(0); colCode <= endColumn.charCodeAt(0); colCode += 1) {
-        const cellRef = `${String.fromCharCode(colCode)}${rowNum}`;
-        expandedRange.push(cellRef);
-      }
-    }
-
-    return expandedRange;
-  }
-
-  private parseCellRange(range: string): { startColumn: string; endColumn: string; startRow: number; endRow: number } {
-    const match = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
-    if (!match) {
-      throw new Error(`Invalid cell range: ${range}`);
-    }
-
-    return {
-      endColumn: match[3],
-      endRow: parseInt(match[4], 10),
-      startColumn: match[1],
-      startRow: parseInt(match[2], 10),
-    };
-  }
-
   private validateInit(): void {
     if (!this.worksheet) {
       throw new Error('Worksheet not initialized. Call init() or setWorksheet() first');
@@ -224,53 +171,6 @@ export class ExcelCalculator {
     } catch (error) {
       console.error('Error evaluating formula:', formula, error);
       return null;
-    }
-  }
-
-  private detectAndMarkCircularReferences(graph: Record<string, string[]>): void {
-    const visited: Record<string, boolean> = {};
-    const recStack: Record<string, boolean> = {}; // Keeps track of nodes in the current recursion stack
-
-    const detectCycle = (node: string): boolean => {
-      if (!visited[node]) {
-        visited[node] = true;
-        recStack[node] = true;
-
-        const neighbours = graph[node] || [];
-        for (const neighbour of neighbours) {
-          if (!visited[neighbour] && detectCycle(neighbour)) {
-            return true; // Cycle detected
-          } else if (recStack[neighbour]) {
-            return true; // Back edge detected, indicating a cycle
-          }
-        }
-      }
-      recStack[node] = false; // Remove the node from recursion stack before backtrack
-      return false;
-    };
-
-    Object.keys(graph).forEach((node) => {
-      if (detectCycle(node)) {
-        // If a cycle is detected involving `node`, mark it and its dependencies
-        this.markCellAndDependenciesWithRefError(node, graph);
-      }
-    });
-  }
-
-  // Helper method to mark a cell and its dependencies with #REF!
-  private markCellAndDependenciesWithRefError(node: string, graph: Record<string, string[]>): void {
-    const stack: string[] = [node];
-    while (stack.length) {
-      const n = stack.pop()!;
-      if (!this.worksheet[n]) {
-        continue;
-      }
-      this.worksheet[n].formula = '#REF!'; // Assuming this is how you store formula in your cell objects
-      (graph[n] || []).forEach((neighbour) => {
-        if (this.worksheet[neighbour]?.formula !== '#REF!') {
-          stack.push(neighbour);
-        }
-      });
     }
   }
 }
