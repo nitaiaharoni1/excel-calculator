@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import * as ExcelJS from 'exceljs';
 import { EXCEL_TO_MATHJS_FORMULAS, MULTIPLE_ARGS_FORMULAS } from './common/constants';
 import { IWorksheet } from './types';
@@ -42,20 +43,26 @@ export class ExcelCalculator {
 
   public calculate(): IWorksheet {
     this.validateInit();
-    const graph = this.buildDependencyGraph();
-    this.detectAndMarkCircularReferences(graph); // Detect and mark circular references before sorting and evaluating
-    const sortedCells = this.topologicalSort(graph);
-    sortedCells.forEach((cellAddress) => {
-      const cell = this.worksheet[cellAddress];
-      if (cell.formula && cell.formula !== '#REF!') {
-        // Skip evaluation for cells marked with #REF!
-        const evaluatedValue = this.evaluateFormula(cell.formula);
-        if (evaluatedValue != null) {
-          cell.value = evaluatedValue;
-          delete cell.formula;
+    let iteration = 0;
+    while (iteration < 10) {
+      let formulaFound = false;
+      for (const cellAddress in this.worksheet) {
+        const cell = this.worksheet[cellAddress];
+        if (cell.formula && cell.formula !== '#REF!') {
+          // Skip evaluation for cells marked with #REF!
+          const evaluatedValue = this.evaluateFormula(cell.formula);
+          if (evaluatedValue != null) {
+            cell.value = evaluatedValue;
+            delete cell.formula;
+            formulaFound = true;
+          }
         }
       }
-    });
+      if (!formulaFound) {
+        break;
+      }
+      iteration += 1;
+    }
     return this.worksheet;
   }
 
@@ -153,31 +160,6 @@ export class ExcelCalculator {
     };
   }
 
-  private topologicalSort(graph: Record<string, string[]>): string[] {
-    const visited: Record<string, boolean> = {};
-    const stack: string[] = [];
-    Object.keys(graph).forEach((node) => {
-      if (!visited[node]) {
-        this.topologicalSortUtil(node, visited, stack, graph);
-      }
-    });
-    return stack;
-  }
-
-  private topologicalSortUtil(node: string, visited: Record<string, boolean>, stack: string[], graph: Record<string, string[]>): void {
-    visited[node] = true;
-    const neighbours = graph[node];
-    if (!neighbours) {
-      return;
-    }
-    neighbours.forEach((n) => {
-      if (!visited[n]) {
-        this.topologicalSortUtil(n, visited, stack, graph);
-      }
-    });
-    stack.push(node);
-  }
-
   private validateInit(): void {
     if (!this.worksheet) {
       throw new Error('Worksheet not initialized. Call init() or setWorksheet() first');
@@ -229,10 +211,13 @@ export class ExcelCalculator {
   private evaluateFormula(formula: string): number | string | null {
     const formulaParsed = convertIfToTernary(formula);
     let formulaWithValues = this.replaceCellRefsWithValues(formulaParsed);
+    if (formulaWithValues.includes('undefined')) {
+      return null;
+    }
     Object.entries(EXCEL_TO_MATHJS_FORMULAS).forEach(([excelFunction, mathjsFunction]) => {
       formulaWithValues = formulaWithValues.replace(new RegExp(`${excelFunction}\\(`, 'gu'), `${mathjsFunction}(`);
     });
-    formulaWithValues = formulaWithValues.replace(/undefined/gu, '0');
+    // formulaWithValues = formulaWithValues.replace(/undefined/gu, '0');
     formulaWithValues = formulaWithValues.replace(/(?<!<)(?<!>)(?<![:])(=)(?!=)/gu, '=$1');
     try {
       return this.math.evaluate(formulaWithValues);
