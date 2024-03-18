@@ -505,6 +505,49 @@ describe('ExcelCalculator Tests', () => {
     expect(valueExp).toBeCloseTo(0.058, 2);
   });
 
+  // 10 dependent cells
+  it('should handle 10 dependent cells', () => {
+    const mockWorksheet = {
+      A1: { formula: 'A2+1' },
+      A2: { formula: 'A3+1' },
+      A3: { formula: 'A4+1' },
+      A4: { formula: 'A5+1' },
+      A5: { formula: 'A6+1' },
+      A6: { formula: 'A7+1' },
+      A7: { formula: 'A8+1' },
+      A8: { formula: 'A9+1' },
+      A9: { formula: 'A10+1' },
+      A10: { value: 1 },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.value).toBe(10);
+  });
+
+  // 12 dependent cells
+  it('should fail calculating 12 dependent cells, maximum iterations is 10', () => {
+    const mockWorksheet = {
+      A1: { formula: 'A2+1' },
+      A2: { formula: 'A3+1' },
+      A3: { formula: 'A4+1' },
+      A4: { formula: 'A5+1' },
+      A5: { formula: 'A6+1' },
+      A6: { formula: 'A7+1' },
+      A7: { formula: 'A8+1' },
+      A8: { formula: 'A9+1' },
+      A9: { formula: 'A10+1' },
+      A10: { formula: 'A11+1' },
+      A11: { formula: 'A12+1' },
+      A12: { value: 1 },
+    };
+    excelCalculator.setWorksheet(mockWorksheet);
+    const result = excelCalculator.calculate();
+    expect(result.A1.value).toBeUndefined();
+    expect(result.A1.formula).toEqual('A2+1');
+    expect(result.A2.value).toBe(11);
+    expect(result.A3.value).toBe(10);
+  });
+
   // it("should handle formulas with string concatenation", () => {
   //   const mockWorksheet = {
   //     A1: { value: "Hello" },
