@@ -1,4 +1,3 @@
-export const MULTIPLE_ARGS_FORMULAS = ['INDEX', 'MATCH', 'VLOOKUP'];
 export const EXCEL_TO_MATHJS_FORMULAS = {
   ABS: 'abs',
   ACOS: 'acos',

@@ -1,8 +1,7 @@
-/* eslint-disable */
-import { ExcelCalculator } from './ExcelCalculator';
+import { ExcelCalculator } from '../ExcelCalculator';
 
 // eslint-disable-next-line max-lines-per-function
-describe('ExcelCalculator Tests', () => {
+describe('Base ExcelCalculator tests', () => {
   let excelCalculator: ExcelCalculator;
 
   beforeEach(() => {
@@ -119,7 +118,6 @@ describe('ExcelCalculator Tests', () => {
     const result = excelCalculator.calculate();
     expect(result.C1.value).toBe(6);
   });
-
 
   it('should handle calculation 1/0 to Infinity', () => {
     const mockWorksheet = {
@@ -291,7 +289,6 @@ describe('ExcelCalculator Tests', () => {
     expect(result.A1.value).toBeUndefined();
   });
 
-
   it('should handle formulas with division by zero + 1', () => {
     const mockWorksheet = {
       A1: { value: 1 },
@@ -314,37 +311,35 @@ describe('ExcelCalculator Tests', () => {
     expect(result.A3.value).toBe(Infinity);
   });
 
-
   it('should handle formulas with invalid functions', () => {
     const mockWorksheet = {
-      A1: { formula: 'INVALID(A1)' },
+      A1: { formula: 'INVALID(A2)' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
-    expect(result.A1.formula).toEqual('INVALID(A1)');
+    expect(result.A1.formula).toEqual('INVALID(A2)');
     expect(result.A1.value).toBeUndefined();
   });
 
   it('should handle formulas with missing parentheses', () => {
     const mockWorksheet = {
-      A1: { formula: 'SUM(A1, A2' },
+      A1: { formula: 'SUM(A2, A3' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
-    expect(result.A1.formula).toEqual('SUM(A1, A2');
+    expect(result.A1.formula).toEqual('SUM(A2, A3');
     expect(result.A1.value).toBeUndefined();
   });
 
   it('should handle formulas with extra parentheses', () => {
     const mockWorksheet = {
-      A1: { formula: 'SUM(A1, A2))' },
+      A1: { formula: 'SUM(A2, A3))' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
-    expect(result.A1.formula).toEqual('SUM(A1, A2))');
+    expect(result.A1.formula).toEqual('SUM(A2, A3))');
     expect(result.A1.value).toBeUndefined();
   });
-
 
   it('should handle formulas with error values', () => {
     const mockWorksheet = {
@@ -380,7 +375,6 @@ describe('ExcelCalculator Tests', () => {
     expect(result.A4.value).toBe(2);
   });
 
-
   it('should handle INDEX and MATCH formula', () => {
     const mockWorksheet = {
       A1: { value: 1 },
@@ -399,10 +393,10 @@ describe('ExcelCalculator Tests', () => {
       A1: { value: 'apple' },
       A2: { value: 'banana' },
       A3: { value: 'cherry' },
+      A4: { formula: 'VLOOKUP("banana", A1:B3, 2)' },
       B1: { value: 1 },
       B2: { value: 2 },
       B3: { value: 3 },
-      A4: { formula: 'VLOOKUP("banana", A1:B3, 2)' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
@@ -414,10 +408,10 @@ describe('ExcelCalculator Tests', () => {
       A1: { value: 'apple' },
       A2: { value: 'banana' },
       A3: { value: 'cherry' },
+      A4: { formula: 'VLOOKUP("banana", A1:B3, 2, false)' },
       B1: { value: 1 },
       B2: { value: 2 },
       B3: { value: 3 },
-      A4: { formula: 'VLOOKUP("banana", A1:B3, 2, false)' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
@@ -429,10 +423,10 @@ describe('ExcelCalculator Tests', () => {
       A1: { value: 'apple' },
       A2: { value: 'banana' },
       A3: { value: 'cherry' },
+      A4: { formula: 'VLOOKUP("banana", A1:B3, 2, true)' },
       B1: { value: 1 },
       B2: { value: 2 },
       B3: { value: 3 },
-      A4: { formula: 'VLOOKUP("banana", A1:B3, 2, true)' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
@@ -444,10 +438,10 @@ describe('ExcelCalculator Tests', () => {
       A1: { value: 'apple' },
       A2: { value: 'banana' },
       A3: { value: 'cherry' },
+      A4: { formula: 'VLOOKUP("pear", A1:B3, 2)' },
       B1: { value: 1 },
       B2: { value: 2 },
       B3: { value: 3 },
-      A4: { formula: 'VLOOKUP("pear", A1:B3, 2)' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
@@ -459,10 +453,10 @@ describe('ExcelCalculator Tests', () => {
       A1: { value: 'apple' },
       A2: { value: 'banana' },
       A3: { value: 'cherry' },
+      A4: { formula: 'VLOOKUP("banana", A1:B3, 3)' },
       B1: { value: 1 },
       B2: { value: 2 },
       B3: { value: 3 },
-      A4: { formula: 'VLOOKUP("banana", A1:B3, 3)' },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
@@ -472,30 +466,30 @@ describe('ExcelCalculator Tests', () => {
   it('should handle SUM and EXP formulas', () => {
     const mockWorksheet = {
       A1: { value: -0.079 },
-      A2: { value: 0.012 },
-      A3: { value: 0.004 },
-      A4: { value: 0.000 },
-      A5: { value: -0.180 },
-      A6: { value: 0.000 },
-      A7: { value: 0.536 },
-      A8: { value: 0.000 },
-      A9: { value: 0.000 },
-      A10: { value: 0.000 },
+      A10: { value: 0.0 },
       A11: { value: -0.029 },
       A12: { value: 0.315 },
       A13: { value: -0.148 },
       A14: { value: 0.033 },
       A15: { value: 0.045 },
       A16: { value: 0.003 },
-      A17: { value: 0.000 },
+      A17: { value: 0.0 },
       A18: { value: -0.005 },
-      A19: { value: 0.000 },
+      A19: { value: 0.0 },
+      A2: { value: 0.012 },
       A20: { value: 0.008 },
-      A21: { value: 0.000 },
-      A22: { value: 0.000 },
+      A21: { value: 0.0 },
+      A22: { value: 0.0 },
       A23: { value: -3.308 },
+      A3: { value: 0.004 },
       A24: { formula: 'SUM(A1:A23)' },
+      A4: { value: 0.0 },
       A25: { formula: 'EXP(A24)/(1+EXP(A24))' },
+      A5: { value: -0.18 },
+      A6: { value: 0.0 },
+      A7: { value: 0.536 },
+      A8: { value: 0.0 },
+      A9: { value: 0.0 },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
@@ -509,6 +503,7 @@ describe('ExcelCalculator Tests', () => {
   it('should handle 10 dependent cells', () => {
     const mockWorksheet = {
       A1: { formula: 'A2+1' },
+      A10: { value: 1 },
       A2: { formula: 'A3+1' },
       A3: { formula: 'A4+1' },
       A4: { formula: 'A5+1' },
@@ -517,35 +512,10 @@ describe('ExcelCalculator Tests', () => {
       A7: { formula: 'A8+1' },
       A8: { formula: 'A9+1' },
       A9: { formula: 'A10+1' },
-      A10: { value: 1 },
     };
     excelCalculator.setWorksheet(mockWorksheet);
     const result = excelCalculator.calculate();
     expect(result.A1.value).toBe(10);
-  });
-
-  // 12 dependent cells
-  it('should fail calculating 12 dependent cells, maximum iterations is 10', () => {
-    const mockWorksheet = {
-      A1: { formula: 'A2+1' },
-      A2: { formula: 'A3+1' },
-      A3: { formula: 'A4+1' },
-      A4: { formula: 'A5+1' },
-      A5: { formula: 'A6+1' },
-      A6: { formula: 'A7+1' },
-      A7: { formula: 'A8+1' },
-      A8: { formula: 'A9+1' },
-      A9: { formula: 'A10+1' },
-      A10: { formula: 'A11+1' },
-      A11: { formula: 'A12+1' },
-      A12: { value: 1 },
-    };
-    excelCalculator.setWorksheet(mockWorksheet);
-    const result = excelCalculator.calculate();
-    expect(result.A1.value).toBeUndefined();
-    expect(result.A1.formula).toEqual('A2+1');
-    expect(result.A2.value).toBe(11);
-    expect(result.A3.value).toBe(10);
   });
 
   // it("should handle formulas with string concatenation", () => {

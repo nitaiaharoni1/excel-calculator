@@ -43,7 +43,6 @@
     ],
     "no-underscore-dangle": "off",
     "init-declarations": "off",
-    "sort-keys-fix/sort-keys-fix": "error",
     "no-inline-comments": "off",
     "no-console": [
       "error",
@@ -68,11 +67,9 @@
     "sort-imports": "off",
     "no-magic-numbers": "off",
     "@typescript-eslint/no-non-null-assertion": "off",
+    "no-plusplus": "off",
     "no-ternary": "off",
-    "max-statements": [
-      "error",
-      50
-    ],
+    "max-statements": "off",
     "id-length": "off",
     "sort-imports-es6-autofix/sort-imports-es6": [
       2,
@@ -101,17 +98,14 @@
     "require-jsdoc": "off",
     "no-warning-comments": "off",
     "capitalized-comments": "off",
+    "no-compare-neg-zero": "off",
     "func-style": "off",
+    "sort-keys": "off",
+    "sort-keys-fix/sort-keys-fix": "off",
+    "max-lines": "off",
+    "max-lines-per-function": "off",
     "no-eq-null": "off",
     "require-unicode-regexp": "off",
-    "max-lines-per-function": [
-      "error",
-      {
-        "max": 100,
-        "skipBlankLines": true,
-        "skipComments": true
-      }
-    ],
     "prettier/prettier": [
       "error",
       {

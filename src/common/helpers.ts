@@ -74,27 +74,26 @@ export function buildWorksheet(excelWorksheet: ExcelJS.Worksheet): IWorksheet {
   return worksheet;
 }
 
-export function customIndexFunction(array: any[][], rowIndex: number, columnIndex: number = 1): any {
-  // @ts-expect-error
-  const parsedArray = array._data;
-  if (Array.isArray(parsedArray) && rowIndex > 0 && columnIndex > 0) {
-    return parsedArray[rowIndex - 1]?.[columnIndex - 1] ?? null;
-  }
-  throw new Error('INDEX function parameters out of range');
+export function customINDEX(rangeMatrix: any, rowOffset: number = 0, columnOffset: number = 0): any {
+  const range: any[][] = rangeMatrix.toArray();
+  return range[rowOffset][columnOffset];
 }
 
-export function customMatchFunction(lookupValue: any, lookupArray: any[], matchType: number = 0): number | null {
-  // @ts-expect-error
-  const parsedLookupArray = lookupArray._data.flat();
-  if (Array.isArray(parsedLookupArray)) {
-    const index = parsedLookupArray.findIndex((item) => item === lookupValue);
-    return index >= 0 ? index + 1 : null; // Excel is 1-based index; return null if not found
+export function customMATCH(searchKey: any, rangeMatrix: any, searchType: number): number {
+  const range: any[][] = rangeMatrix.toArray();
+  if (searchType === 0) {
+    return range.findIndex((row) => row[0] === searchKey);
   }
-  throw new Error('MATCH function lookupArray must be an array');
+  if (searchType === 1) {
+    return range.sort((a, b) => a[0] - b[0]).findIndex((row) => row[0] >= searchKey);
+  }
+  if (searchType === -1) {
+    return range.sort((a, b) => b[0] - a[0]).findIndex((row) => row[0] <= searchKey);
+  }
+  throw new Error('MATCH function parameters out of range');
 }
 
-// VLOOKUP(search_key, range, index, [is_sorted])
-export function customVlookupFunction(searchKey: any, range: any[][], index: number, isSorted: boolean = true): any | null {
+export function customVLOOKUP(searchKey: any, range: any[][], index: number, isSorted: boolean = true): any | null {
   // @ts-expect-error
   const parsedRange = range._data;
   if (Array.isArray(parsedRange) && index > 0) {

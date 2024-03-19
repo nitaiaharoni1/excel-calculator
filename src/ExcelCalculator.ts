@@ -1,9 +1,10 @@
 /* eslint-disable max-lines */
 import * as ExcelJS from 'exceljs';
-import { EXCEL_TO_MATHJS_FORMULAS, MULTIPLE_ARGS_FORMULAS } from './common/constants';
+import { EXCEL_TO_MATHJS_FORMULAS } from './common/constants';
+import { Graph, alg } from 'graphlib';
 import { IWorksheet } from './types';
 import { MathJsInstance, all, create } from 'mathjs';
-import { buildWorksheet, convertIfToTernary, customIndexFunction, customMatchFunction, customVlookupFunction } from './common/helpers';
+import { buildWorksheet, convertIfToTernary, customINDEX, customMATCH, customVLOOKUP } from './common/helpers';
 
 export class ExcelCalculator {
   public filePath: string;
@@ -20,9 +21,9 @@ export class ExcelCalculator {
 
     this.math.import(
       {
-        INDEX: customIndexFunction,
-        MATCH: customMatchFunction,
-        VLOOKUP: customVlookupFunction,
+        INDEX: customINDEX,
+        MATCH: customMATCH,
+        VLOOKUP: customVLOOKUP,
       },
       { override: true },
     );
@@ -43,26 +44,96 @@ export class ExcelCalculator {
 
   public calculate(): IWorksheet {
     this.validateInit();
-    let iteration = 0;
-    while (iteration < 10) {
-      let formulaFound = false;
-      for (const cellAddress in this.worksheet) {
-        const cell = this.worksheet[cellAddress];
-        if (cell.formula && cell.formula !== '#REF!') {
-          formulaFound = true;
-          const evaluatedValue = this.evaluateFormula(cell.formula);
-          if (evaluatedValue != null) {
-            cell.value = evaluatedValue;
-            delete cell.formula;
+
+    const graph = this.createDependencyGraph();
+    // remove cycles
+    const dagGraph = this.removeCycles(graph);
+    const sortedCells = this.performTopologicalSort(dagGraph);
+    this.calculateFormulas(sortedCells);
+
+    return this.worksheet;
+  }
+
+  private createDependencyGraph(): Graph {
+    const graph = new Graph();
+    for (const cellAddress in this.worksheet) {
+      const cell = this.worksheet[cellAddress];
+      if (cell.formula) {
+        graph.setNode(cellAddress);
+        const dependencies = this.extractDependencies(cell.formula);
+        dependencies.forEach((dependency) => {
+          graph.setEdge(dependency, cellAddress);
+        });
+      }
+    }
+    return graph;
+  }
+
+  private performTopologicalSort(graph: Graph): string[] {
+    try {
+      return alg.topsort(graph);
+    } catch (e) {
+      throw new Error('Circular dependency detected');
+    }
+  }
+
+  private removeCycles(graph: Graph): Graph {
+    // Check if the graph is acyclic
+    if (!alg.isAcyclic(graph)) {
+      // Find all cycles in the graph
+      const cycles = alg.findCycles(graph);
+      cycles.forEach((cycle) => {
+        // Remove an edge from each cycle to break the cycle
+        for (let i = 0; i < cycle.length - 1; i++) {
+          if (graph.hasEdge(cycle[i], cycle[i + 1])) {
+            graph.removeEdge(cycle[i], cycle[i + 1]);
+            break;
           }
         }
-      }
-      if (!formulaFound) {
-        break;
-      }
-      iteration += 1;
+      });
     }
-    return this.worksheet;
+    return graph;
+  }
+
+  private calculateFormulas(sortedCells: string[]): void {
+    sortedCells.forEach((cellAddress) => {
+      const cell = this.worksheet[cellAddress];
+      if (cell?.formula) {
+        const evaluatedValue = this.evaluateFormula(cellAddress, cell.formula);
+        if (evaluatedValue != null) {
+          cell.value = evaluatedValue;
+          delete cell.formula;
+        }
+      }
+    });
+  }
+
+  private extractDependencies(formula: string): string[] {
+    const regex = /\$?([A-Z]+)\$?([0-9]+)(:\$?([A-Z]+)\$?([0-9]+))?/gu;
+    const matches = formula.match(regex);
+    const dependencies: string[] = [];
+
+    matches?.forEach((match) => {
+      const [startCell, endCell] = match.split(':');
+      if (endCell) {
+        const [startCol, startRow] = this.splitCellAddress(startCell);
+        const [endCol, endRow] = this.splitCellAddress(endCell);
+        for (let col = startCol.charCodeAt(0); col <= endCol.charCodeAt(0); col++) {
+          for (let row = startRow; row <= endRow; row++) {
+            dependencies.push(String.fromCharCode(col) + row);
+          }
+        }
+      } else {
+        dependencies.push(startCell);
+      }
+    });
+    return dependencies.map((dependency) => dependency.replace(/\$/gu, ''));
+  }
+
+  private splitCellAddress(cellAddress: string): [string, number] {
+    const col = cellAddress.match(/[A-Z]+/)?.[0] ?? '';
+    const row = parseInt(cellAddress.match(/[0-9]+/)?.[0] ?? '', 10);
+    return [col, row];
   }
 
   public setCellsValues(cells: Record<string, number | string | any>): void {
@@ -113,60 +184,51 @@ export class ExcelCalculator {
   }
 
   private replaceCellRefsWithValues(formula: string): string {
-    // Now, handle range references (e.g., A1:A3). This is where we adjust for INDEX and MATCH support.
-    // This regex identifies range references and replaces them with a structured array representation.
-    let replacedFormula = formula;
-    replacedFormula = replacedFormula.replace(/([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/gu, (match, startCol, startRow, endCol, endRow) => {
-      // Convert start and end rows to numbers for iteration
-
+    // Handle range references (e.g., A1:A3)
+    let replacedFormula = formula.replace(/([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)/gu, (match, startCol, startRow, endCol, endRow) => {
       const startRowNum = parseInt(startRow, 10);
       const endRowNum = parseInt(endRow, 10);
       const rangeValues = this.getRangeValues(startCol, startRowNum, endCol, endRowNum);
-      if (MULTIPLE_ARGS_FORMULAS.some((f) => formula.includes(f))) {
-        return JSON.stringify(rangeValues);
-      }
-      return rangeValues.flat().join(',');
+      const str = JSON.stringify(rangeValues);
+      return str;
     });
 
-    // Handle normal cell references (e.g., A1, B2) as your existing logic might already do.
-    // This regex identifies individual cell references and replaces them with their corresponding values.
+    // Handle normal cell references (e.g., A1, B2)
     replacedFormula = replacedFormula.replace(/\$?([A-Z]+)\$?([0-9]+)/gu, (_, col, row) => {
       const cellValue = this.getCellValue(`${col}${row}`);
-      return cellValue === null ? 'undefined' : JSON.stringify(cellValue); // Convert to JSON string to handle strings correctly in formulas
+      return cellValue === null ? 'undefined' : JSON.stringify(cellValue);
     });
 
     return replacedFormula;
   }
 
   private getRangeValues(startCol: string, startRow: number, endCol: string, endRow: number): any[][] {
-    const rangeValues = [];
-    // Assume column letters can be converted to and from ASCII codes for simplicity.
-    // For a more robust solution, you might need a method to convert column letters to numbers and vice versa.
-    for (let rowNum = startRow; rowNum <= endRow; rowNum += 1) {
-      const rowValues = [];
-      for (let colCode = startCol.charCodeAt(0); colCode <= endCol.charCodeAt(0); colCode += 1) {
-        const colLetter = String.fromCharCode(colCode);
-        const cellValue = this.getCellValue(`${colLetter}${rowNum}`);
-        rowValues.push(cellValue === null ? undefined : cellValue); // Use undefined for empty cells to mirror Excel behavior
+    const rangeValues: any[][] = [];
+    for (let row = startRow; row <= endRow; row++) {
+      const rowValues: any[] = [];
+      for (let col = startCol.charCodeAt(0); col <= endCol.charCodeAt(0); col++) {
+        const cellValue = this.getCellValue(String.fromCharCode(col) + row);
+        rowValues.push(cellValue === null ? 'undefined' : cellValue);
       }
       rangeValues.push(rowValues);
     }
     return rangeValues;
   }
 
-  private evaluateFormula(formula: string): number | string | null {
+  private evaluateFormula(cell: string, formula: string): number | string | null {
     const formulaParsed = convertIfToTernary(formula);
     let formulaWithValues = this.replaceCellRefsWithValues(formulaParsed);
-    if (formulaWithValues.includes('undefined')) {
-      return null;
-    }
     Object.entries(EXCEL_TO_MATHJS_FORMULAS).forEach(([excelFunction, mathjsFunction]) => {
       formulaWithValues = formulaWithValues.replace(new RegExp(`${excelFunction}\\(`, 'gu'), `${mathjsFunction}(`);
     });
-    // formulaWithValues = formulaWithValues.replace(/undefined/gu, '0');
-    formulaWithValues = formulaWithValues.replace(/(?<!<)(?<!>)(?<![:])(=)(?!=)/gu, '=$1');
+    formulaWithValues = formulaWithValues.replace(/(?<!<)(?<!>)(?<![:])(=)(?!=)/gu, '=$1').replace(/undefined/gu, '0');
     try {
-      return this.math.evaluate(formulaWithValues);
+      // console.log('Evaluating cell', cellAddress, 'formula:', formulaWithValues);
+      const result = this.math.evaluate(formulaWithValues);
+      if (result === -0) {
+        return 0;
+      }
+      return result;
     } catch (error) {
       console.error('Error evaluating formula:', formula, error);
       return null;
