@@ -30,8 +30,6 @@ To install excel-calculator, run the following command in your project directory
 npm install excel-calculator
 ```
 
-Ensure you have `exceljs` and `mathjs` installed in your project, as excel-calculator depends on these.
-
 ## Usage
 
 ### Initializing excel-calculator
@@ -39,9 +37,9 @@ Ensure you have `exceljs` and `mathjs` installed in your project, as excel-calcu
 First, import and create an instance of `excel-calculator` with the path to your Excel file and the worksheet name you intend to work with:
 
 ```javascript
-import { excel-calculator } from 'excel-calculator';
+import { ExcelCalculator } from 'excel-calculator';
 
-const calculator = new excel-calculator('path/to/your/file.xlsx', 'Sheet1');
+const calculator = new ExcelCalculator('path/to/your/file.xlsx', 'Sheet1');
 ```
 
 ### Setting and Getting Cell Values
@@ -78,7 +76,7 @@ console.log(calculatedValue); // Output: 200
 A complete workflow from initializing the calculator, setting values and formulas, to calculating and retrieving values:
 
 ```typescript
-const calculator = new excel-calculator('path/to/file.xlsx', 'Sheet1');
+const calculator = new ExcelCalculator('path/to/file.xlsx', 'Sheet1');
 await calculator.init();
 
 calculator.setCellValue("A1", 100);
@@ -96,7 +94,7 @@ console.log(calculator.getCellValue("B1")); // Output: 155
 
 Another example of setting a worksheet with initial values and formulas and calculating the result:
 ```typescript
-const calculator = new excel-calculator('path/to/file.xlsx', 'Sheet1');
+const calculator = new ExcelCalculator('path/to/file.xlsx', 'Sheet1');
 await calculator.setWorksheet({
   A1: { value: 2 },
   B1: { value: 3 },
