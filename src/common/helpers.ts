@@ -93,9 +93,8 @@ export function customMATCH(searchKey: any, rangeMatrix: any, searchType: number
   throw new Error('MATCH function parameters out of range');
 }
 
-export function customVLOOKUP(searchKey: any, range: any[][], index: number, isSorted: boolean = true): any | null {
-  // @ts-expect-error
-  const parsedRange = range._data;
+export function customVLOOKUP(searchKey: any, range: any, index: number, isSorted: boolean = true): any | null {
+  const parsedRange: any[][] = range.toArray();
   if (Array.isArray(parsedRange) && index > 0) {
     const searchIndex = parsedRange.findIndex((row) => row[0] === searchKey);
     if (searchIndex >= 0) {
